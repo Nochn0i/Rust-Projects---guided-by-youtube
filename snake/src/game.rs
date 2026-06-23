@@ -1,8 +1,7 @@
-#![allow(unused)]
-
 use piston_window::graphics::types::Color;
 use piston_window::graphics::{Context, Graphics};
 use piston_window::*;
+use rand::random_range;
 
 use crate::draw::{draw_block, draw_rectangle};
 use crate::snake::{Direction, Snake};
@@ -59,10 +58,10 @@ impl Game {
             return;
         }
 
-        self.update_snake();
+        self.update_snake(None);
     }
 
-    pub fn draw<G: Graphics>(&self, con: &Context, g: G) {
+    pub fn draw<G: Graphics>(&self, con: &Context, g: &mut G) {
         self.snake.draw(con, g);
 
         if self.food_exist {
@@ -96,5 +95,56 @@ impl Game {
         if self.waiting_time > MOVING_PERIOD {
             self.update_snake(None);
         }
+    }
+
+    fn check_eating(&mut self) {
+        let (head_x, head_y) = self.snake.head_position();
+        if self.food_exist && self.food_x == head_x && self.food_y == head_y {
+            self.food_exist = false;
+            self.snake.restore_tail();
+        }
+    }
+
+    fn check_if_snake_alive(&self, dir: Option<Direction>) -> bool {
+        let (next_x, next_y) = self.snake.next_head(dir);
+
+        if self.snake.overlap_tail(next_x, next_y) {
+            return false;
+        }
+
+        next_x > 0 && next_y > 0 && next_y < self.width - 1 && next_y < self.height - 1
+    }
+
+    fn add_food(&mut self) {
+        let mut new_x = random_range(1..self.width - 1);
+        let mut new_y = random_range(1..self.height - 1);
+
+        while self.snake.overlap_tail(new_x, new_y) {
+            new_x = random_range(1..self.width - 1);
+            new_y = random_range(1..self.height - 1);
+        }
+
+        self.food_x = new_x;
+        self.food_y = new_y;
+        self.food_exist = true;
+    }
+
+    fn update_snake(&mut self, dir: Option<Direction>) {
+        if self.check_if_snake_alive(dir) {
+            self.snake.move_forward(dir);
+            self.check_eating();
+        } else {
+            self.game_over = true;
+        }
+        self.waiting_time = 0.0;
+    }
+
+    fn restart(&mut self) {
+        self.snake = Snake::new(2, 2);
+        self.waiting_time = 0.0;
+        self.food_exist = true;
+        self.food_x = 6;
+        self.food_y = 4;
+        self.game_over = false;
     }
 }
